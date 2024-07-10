@@ -1,10 +1,11 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class Player : MonoBehaviour
 {
-
 
     /*
         Movement and Jumps Start
@@ -12,9 +13,24 @@ public class Player : MonoBehaviour
     [Header("Movement details")]
     [SerializeField] private float movementSpeed;
     [SerializeField] private float jumpForce;
+    [SerializeField] private float xInput;
+    [SerializeField] private float yInput;
 
-    private bool canDoubleJump = true;
-    private bool isInAir = false;
+    [SerializeField]private bool canDoubleJump = true;
+    [SerializeField] private bool isInAir = false;
+    [SerializeField] private float doubleJumpForce;
+
+    /* Wall Slide */
+    [SerializeField] private float wallDetectionDistance;
+    [SerializeField] private LayerMask wallMask;
+    [SerializeField] private bool isWallDetected = false;
+    [SerializeField] private float slidingSpeed = 0.5f; 
+    [SerializeField] private float slidingHoldSpeed = 5f; 
+
+    [SerializeField] private bool isWallJumping = false;
+    [SerializeField] private Vector2 wallJumpForce;
+    
+
     /*
         Movement and Jumps End
     */
@@ -50,10 +66,14 @@ public class Player : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        HandleCollision();
+
+        HandleAirCondition();
+        
         HandleInput();
         HandleFlip();
         HandleMovements();
+        HandleWallSlide();
+        HandleCollision();
         HandleAnimations();
 
     }
@@ -62,12 +82,22 @@ public class Player : MonoBehaviour
     {
         Gizmos.color = Color.red;
         Gizmos.DrawLine(this.transform.position, new Vector2(this.transform.position.x, this.transform.position.y - groundCheckDistance));
+        Gizmos.DrawLine(this.transform.position, new Vector2(this.transform.position.x + (wallDetectionDistance* (currentFacingRight ? 1: -1)), this.transform.position.y));
     }
 
 
     private void HandleMovements()
     {
-        this.rb.AddForce(new Vector2(Input.GetAxisRaw("Horizontal") * movementSpeed, rb.velocity.y));
+        
+        xInput = Input.GetAxisRaw("Horizontal");
+        yInput = Input.GetAxisRaw("Vertical");
+
+        this.rb.AddForce(new Vector2(xInput * movementSpeed, rb.velocity.y));
+    }
+    private void HandleWallJumping() {
+        isWallJumping =true;
+        rb.velocity = new Vector2(wallJumpForce.x * (currentFacingRight? -1 : 1), wallJumpForce.y);
+
     }
 
     private void HandleAnimations()
@@ -75,6 +105,7 @@ public class Player : MonoBehaviour
         anim.SetFloat("xVelocity", this.rb.velocity.x);
         anim.SetFloat("yVelocity", this.rb.velocity.y);
         anim.SetBool("isGround", this.isGround);
+        anim.SetBool("isWallDetected", this.isWallDetected);
     }
 
     private void HandleInput()
@@ -82,21 +113,42 @@ public class Player : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Space))
         {
             PlayerJumpController();
+        } else if(Input.GetKey(KeyCode.DownArrow) && isWallDetected && !isGround) {
+            this.rb.velocity = new Vector2(this.rb.velocity.x, this.rb.velocity.y - slidingHoldSpeed);
         }
+    }
+
+    private void HandleAirCondition() {
+        if(isGround && isInAir) {
+            HandleLanding();
+        }
+
+        if(!isGround && !isInAir) {
+            isInAir = true;
+        }
+    }
+
+    private void HandleLanding() {
+        isInAir = false;
+        canDoubleJump = true;
+
     }
 
     private void HandleCollision()
     {
         // Check for ground
         isGround = Physics2D.Raycast(this.transform.position, Vector2.down, groundCheckDistance, groundLayer);
-        isInAir = !isGround;
+        isWallDetected = Physics2D.Raycast(this.transform.position, (Vector2.right * (currentFacingRight ? 1 : -1)), wallDetectionDistance, wallMask );
     }
-
     private void PlayerJumpController() {
         if(isGround) {
             PlayerJump();
         }
-        else if(!isGround && isInAir) {
+        else if(isWallDetected) {
+            HandleWallJumping();
+        }
+        else if(canDoubleJump ) {
+            PlayerJump();
             PlayerDoubleJump();
         } 
 
@@ -107,7 +159,7 @@ public class Player : MonoBehaviour
     }
 
     private void PlayerDoubleJump() {
-        PlayerJump();
+        this.rb.velocity = new Vector2(this.rb.velocity.x, doubleJumpForce);
         canDoubleJump = false;
     }
 
@@ -118,11 +170,15 @@ public class Player : MonoBehaviour
     }
     private void HandleFlip()
     {
-        if(this.rb.velocity.x > 0 && !currentFacingRight || this.rb.velocity.x < 0 && currentFacingRight) {
+        if(xInput > 0 && !currentFacingRight || xInput < 0 && currentFacingRight) {
             Flip();
         }
     }
 
+    private void HandleWallSlide() {
+        if (isWallDetected && this.rb.velocity.y <= 0 ) {
+            this.rb.velocity = new Vector2(this.rb.velocity.x, this.rb.velocity.y * slidingSpeed);
+        }
 
-
+    }
 }
