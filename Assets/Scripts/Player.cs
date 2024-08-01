@@ -6,7 +6,6 @@ using UnityEngine;
 
 public class Player : MonoBehaviour
 {
-
     /*
         Movement and Jumps Start
     */
@@ -27,9 +26,11 @@ public class Player : MonoBehaviour
     [SerializeField] private float slidingSpeed = 0.5f; 
     [SerializeField] private float slidingHoldSpeed = 5f; 
 
+    /* Wall Jump */
     [SerializeField] private bool isWallJumping = false;
     [SerializeField] private Vector2 wallJumpForce;
-    
+
+    [SerializeField] private float wallJumpCooldownDuration = 0.6f;   
 
     /*
         Movement and Jumps End
@@ -78,6 +79,17 @@ public class Player : MonoBehaviour
 
     }
 
+
+    private void PlayerKnockback() {
+        
+        anim.SetTrigger("knockback");
+        rb.velocity = new Vector2(-xInput * 5f, 10f);
+        
+
+    }
+
+
+
     private void OnDrawGizmos()
     {
         Gizmos.color = Color.red;
@@ -94,10 +106,11 @@ public class Player : MonoBehaviour
 
         this.rb.AddForce(new Vector2(xInput * movementSpeed, rb.velocity.y));
     }
-    private void HandleWallJumping() {
-        isWallJumping =true;
+    private void PlayerWallJumping() {
         rb.velocity = new Vector2(wallJumpForce.x * (currentFacingRight? -1 : 1), wallJumpForce.y);
-
+        Flip();
+        StopAllCoroutines();
+        StartCoroutine(WallJumpCooldown());
     }
 
     private void HandleAnimations()
@@ -110,6 +123,10 @@ public class Player : MonoBehaviour
 
     private void HandleInput()
     {
+        if(Input.GetKeyDown(KeyCode.K)){
+            PlayerKnockback();
+        }
+
         if (Input.GetKeyDown(KeyCode.Space))
         {
             PlayerJumpController();
@@ -119,19 +136,20 @@ public class Player : MonoBehaviour
     }
 
     private void HandleAirCondition() {
+
         if(isGround && isInAir) {
             HandleLanding();
         }
 
-        if(!isGround && !isInAir) {
+        if(!isInAir && !isGround) {
             isInAir = true;
         }
+
     }
 
     private void HandleLanding() {
         isInAir = false;
         canDoubleJump = true;
-
     }
 
     private void HandleCollision()
@@ -141,16 +159,21 @@ public class Player : MonoBehaviour
         isWallDetected = Physics2D.Raycast(this.transform.position, (Vector2.right * (currentFacingRight ? 1 : -1)), wallDetectionDistance, wallMask );
     }
     private void PlayerJumpController() {
-        if(isGround) {
+        if(isGround ) {
             PlayerJump();
         }
         else if(isWallDetected) {
-            HandleWallJumping();
+            PlayerWallJumping();
         }
-        else if(canDoubleJump ) {
-            PlayerJump();
+        else if(canDoubleJump) {
             PlayerDoubleJump();
         } 
+    }
+
+    private IEnumerator WallJumpCooldown() {
+        isWallJumping = true;
+        yield return new WaitForSeconds(wallJumpCooldownDuration);
+        isWallJumping = false;
 
     }
     private void PlayerJump()
@@ -166,7 +189,6 @@ public class Player : MonoBehaviour
     private void Flip() {
         this.transform.Rotate(new Vector3(0, 180, 0));
         currentFacingRight = !currentFacingRight;
-
     }
     private void HandleFlip()
     {
@@ -177,8 +199,8 @@ public class Player : MonoBehaviour
 
     private void HandleWallSlide() {
         if (isWallDetected && this.rb.velocity.y <= 0 ) {
-            this.rb.velocity = new Vector2(this.rb.velocity.x, this.rb.velocity.y * slidingSpeed);
+            this.rb.velocity = new Vector2(this.rb.velocity.x,
+             this.rb.velocity.y * slidingSpeed);
         }
-
     }
 }
