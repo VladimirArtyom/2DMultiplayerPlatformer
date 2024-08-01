@@ -966,6 +966,8 @@ MonoBehaviour:
   isWallJumping: 0
   wallJumpForce: {x: 10, y: 13}
   wallJumpCooldownDuration: 0.6
+  coyoteJumpWindow: 0
+  coyoteJumpWindowDuration: 0.67
   isGround: 1
   groundLayer:
     serializedVersion: 2
